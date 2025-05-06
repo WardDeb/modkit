@@ -92,7 +92,7 @@ impl EntryStats {
         let parser = match reader.peek() {
             Some(Ok(l)) => {
                 let num_fields = l.split('\t').count();
-                if num_fields <= 4 {
+                if num_fields <= 5 {
                     |l: &str| GenomeRegion::parse_unstranded_bed_line(l)
                 } else {
                     |l: &str| GenomeRegion::parse_stranded_bed_line(l)
