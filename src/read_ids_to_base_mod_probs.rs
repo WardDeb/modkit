@@ -142,7 +142,7 @@ impl ReadIdsToBaseModProbs {
             .reduce(
                 || (HashMap::zero(), HashMap::new()),
                 |(a, mut x), (b, y)| {
-                    x.mut_op_max(y);
+                    x.op_max_mut(y);
                     (a.op(b), x)
                 },
             )

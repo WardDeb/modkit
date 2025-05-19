@@ -496,7 +496,7 @@ impl MethylationEntropy {
                         )?;
                     base_to_probs.op_mut(per_base_thresholds);
                     explicit_canonical_probs_agg
-                        .mut_op_max(explicit_canonical_probs);
+                        .op_max_mut(explicit_canonical_probs);
                 }
                 let per_base_thresholds = base_to_probs
                     .iter_mut()
