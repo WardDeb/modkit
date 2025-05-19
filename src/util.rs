@@ -1025,12 +1025,12 @@ pub(crate) fn get_human_readable_table() -> prettytable::Table {
 }
 
 pub trait MutOpMax {
-    fn mut_op_max(&mut self, other: Self);
+    fn op_max_mut(&mut self, other: Self);
 }
 
 impl<T: Hash + Eq> MutOpMax for HashMap<T, f32> {
     #[inline]
-    fn mut_op_max(&mut self, other: Self) {
+    fn op_max_mut(&mut self, other: Self) {
         for (k, p) in other.into_iter() {
             self.entry(k)
                 .and_modify(|x| match (*x).partial_cmp(&p) {
