@@ -13,7 +13,7 @@ most circumstances. As a rust-based project, `modkit` can also be installed with
 ```bash
 git clone https://github.com/nanoporetech/modkit.git
 cd modkit
-cargo install --path .
+cargo install --path modkit
 # or
 cargo install --git https://github.com/nanoporetech/modkit.git
 ```
