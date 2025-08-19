@@ -194,7 +194,9 @@ pub(crate) fn get_tag<T>(
 }
 
 pub(crate) fn parse_nm(record: &bam::Record) -> anyhow::Result<u32> {
-    let nm_tag = record.aux("NM".as_bytes())?;
+    let nm_tag = record
+        .aux("NM".as_bytes())
+        .map_err(|e| anyhow!("failed to get NM tag, {e}"))?;
     match nm_tag {
         Aux::U8(x) => Ok(x as u32),
         Aux::U16(x) => Ok(x as u32),

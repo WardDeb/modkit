@@ -12,7 +12,7 @@ use clap::Args;
 use derive_new::new;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use log::{debug, info};
+use log::{debug, info, warn};
 use log_once::warn_once;
 use ndarray::Array1;
 use prettytable::format::{
@@ -606,9 +606,9 @@ fn process_bam_file(
         }
     }
     if !read_filter_iter.errored.is_empty() {
-        debug!("Input errors:");
+        warn!("Input errors:");
         for (error, count) in read_filter_iter.errored.iter() {
-            debug!("\t{}: {}", error, count);
+            warn!("\t{}: {}", error, count);
         }
     }
     if !read_filter_iter.skipped.is_empty() {
