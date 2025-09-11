@@ -143,6 +143,19 @@ impl PileupFeatureCounts {
             _ => None,
         }
     }
+
+    fn is_empty(&self) -> bool {
+        self.filtered_coverage
+            + self.n_delete
+            + self.n_filtered
+            + self.n_diff
+            + self.n_nocall
+            == 0
+    }
+
+    fn is_valid(&self) -> bool {
+        self.filtered_coverage > 0
+    }
 }
 
 impl From<BedMethylLine> for PileupFeatureCounts {
@@ -288,25 +301,32 @@ impl FeatureVector {
         pileup_options: &PileupNumericOptions,
         motif_idxs: Option<&Vec<usize>>,
     ) {
-        let iter =
-            tally.modcall_counts.iter().map(|(primary_base, mod_calls)| {
-                (
-                    primary_base,
-                    mod_calls,
-                    tally.basecall_counts.get(primary_base).unwrap_or(&0),
-                )
-            });
-        for (primary_base, base_states, &n_nocall) in iter {
-            let (n_canonical, mod_calls) = base_states.iter().fold(
-                (0, FxHashMap::default()),
-                |(n_can, mut mod_codes), (base_state, count)| match base_state {
-                    BaseState::Canonical(_) => (n_can + *count, mod_codes),
-                    BaseState::Modified(repr) => {
-                        *mod_codes.entry(*repr).or_insert(0) += *count;
-                        (n_can, mod_codes)
-                    }
-                },
-            );
+        let iter = observed_mods.iter().map(|(primary_base, mod_codes)| {
+            (
+                primary_base,
+                tally.modcall_counts.get(primary_base),
+                tally.basecall_counts.get(primary_base).unwrap_or(&0),
+                mod_codes,
+            )
+        });
+        for (primary_base, base_states, &n_nocall, mod_codes) in iter {
+            let (n_canonical, mod_calls) = match base_states {
+                Some(base_states) => base_states.iter().fold(
+                    (0, FxHashMap::default()),
+                    |(n_can, mut mod_codes), (base_state, count)| {
+                        match base_state {
+                            BaseState::Canonical(_) => {
+                                (n_can + *count, mod_codes)
+                            }
+                            BaseState::Modified(repr) => {
+                                *mod_codes.entry(*repr).or_insert(0) += *count;
+                                (n_can, mod_codes)
+                            }
+                        }
+                    },
+                ),
+                None => (0, FxHashMap::default()),
+            };
 
             let total_num_modified = mod_calls.values().sum::<u32>();
             let filtered_coverage = total_num_modified + n_canonical;
@@ -314,14 +334,10 @@ impl FeatureVector {
             match pileup_options {
                 PileupNumericOptions::Passthrough
                 | PileupNumericOptions::Collapse(_) => {
-                    for (&mod_code, &n_mod) in observed_mods
-                        .get(primary_base)
-                        .unwrap_or(&HashSet::new())
+                    let mod_code_count_iter = mod_codes
                         .iter()
-                        .map(|mod_code| {
-                            (mod_code, mod_calls.get(mod_code).unwrap_or(&0))
-                        })
-                    {
+                        .map(|c| (c, mod_calls.get(c).unwrap_or(&0)));
+                    for (&mod_code, &n_mod) in mod_code_count_iter {
                         let n_diff = tally.diff_calls_count(primary_base);
                         let n_other_mod =
                             total_num_modified.checked_sub(n_mod).unwrap_or(0);
@@ -418,7 +434,6 @@ impl FeatureVector {
         negative_motif_idxs: Option<&Vec<usize>>,
     ) -> Vec<PileupFeatureCounts> {
         let mut counts = Vec::new();
-        // dbg!(&self.pos_tally, &pos_observed_mods);
 
         Self::add_tally_to_counts(
             &mut counts,
@@ -437,6 +452,7 @@ impl FeatureVector {
             negative_motif_idxs,
         );
 
+        counts.retain(|x| !x.is_empty());
         counts.sort_by(|a, b| match a.raw_strand.cmp(&b.raw_strand) {
             Ordering::Equal => a.raw_mod_code.cmp(&b.raw_mod_code),
             o @ _ => o,
@@ -991,6 +1007,28 @@ fn process_region<T: AsRef<Path>>(
     } else {
         position_feature_counts
     };
+
+    let position_feature_counts = position_feature_counts
+        .into_par_iter()
+        .filter_map(|(pos, key_to_features)| {
+            let filter_valid = key_to_features
+                .into_iter()
+                .filter_map(|(k, mut vs)| {
+                    vs.retain(|x| x.is_valid());
+                    if vs.is_empty() {
+                        None
+                    } else {
+                        Some((k, vs))
+                    }
+                })
+                .collect::<HashMap<PartitionKey, Vec<PileupFeatureCounts>>>();
+            if filter_valid.is_empty() {
+                None
+            } else {
+                Some((pos, filter_valid))
+            }
+        })
+        .collect();
 
     let (processed_records, skipped_records) =
         read_cache.get_records_used_and_skipped();
