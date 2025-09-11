@@ -191,7 +191,7 @@ impl ModificationCounts {
         interval: DmrInterval,
     ) -> MkResult<Self> {
         let score = llk_ratio(&control_counts, &exp_counts)?;
-        let coh_res = cohen_h(&control_counts, &exp_counts);
+        let coh_res = cohen_h(&exp_counts, &control_counts);
         Ok(Self {
             control_counts,
             exp_counts,
@@ -249,7 +249,7 @@ impl ModificationCounts {
     }
 
     fn effect_size(&self) -> f32 {
-        self.control_counts.frac_modified() - self.exp_counts.frac_modified()
+        self.exp_counts.frac_modified() - self.control_counts.frac_modified()
     }
 }
 
